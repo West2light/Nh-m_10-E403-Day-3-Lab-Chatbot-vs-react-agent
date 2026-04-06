@@ -6,6 +6,7 @@ Bao gồm: schema cho Anthropic API và hàm thực thi thực tế
 import json
 import urllib.parse
 import urllib.request
+import re
 
 # ─────────────────────────────────────────────
 # TOOL SCHEMA (gửi lên Anthropic API)
@@ -155,6 +156,9 @@ def _pick_dataset(query: str) -> list:
         return _MOCK_DB["rtx"]
     return _MOCK_DB["default"]
 
+def _price_to_int(price_str: str) -> int:
+    digits = re.sub(r"[^\d]", "", price_str)
+    return int(digits) if digits else 0
 
 # ─────────────────────────────────────────────
 # EXECUTOR – hàm thực thi tool
@@ -167,6 +171,9 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
     """
     if tool_name == "search_pc_price":
         return _search_pc_price(**tool_input)
+    elif tool_name == "sort_products":
+        return _sort_products(**tool_input)
+
     return json.dumps({"error": f"Tool '{tool_name}' không tồn tại."})
 
 
@@ -189,6 +196,35 @@ def _search_pc_price(query: str, max_results: int = 5) -> str:
     }
     return json.dumps(output, ensure_ascii=False, indent=2)
 
+def _sort_products(query: str, sort_order: str = "asc", max_results: int = 5) -> str:
+    """
+    Sắp xếp sản phẩm theo giá.
+
+    Args:
+        query: từ khóa tìm kiếm
+        sort_order: "asc" = tăng dần, "desc" = giảm dần
+        max_results: số lượng kết quả tối đa
+
+    Returns:
+        JSON string chứa danh sách sản phẩm đã được sắp xếp
+    """
+    dataset = _pick_dataset(query)
+
+    reverse = sort_order.lower() == "desc"
+    results = sorted(
+        dataset,
+        key=lambda item: _price_to_int(item.get("price", "0")),
+        reverse=reverse,
+    )[:max_results]
+
+    output = {
+        "query": query,
+        "sort_order": sort_order,
+        "total_found": len(results),
+        "results": results,
+        "source_note": "Dữ liệu mô phỏng đã được sắp xếp theo giá",
+    }
+    return json.dumps(output, ensure_ascii=False, indent=2)
 
 # ─────────────────────────────────────────────
 # TOOLS_OPENAI – schema cho OpenAI API
@@ -222,6 +258,39 @@ TOOLS_OPENAI = [
                     },
                 },
                 "required": ["query"],
+            },
+        },
+    },
+        {
+        "type": "function",
+        "function": {
+            "name": "sort_products",
+            "description": (
+                "Sắp xếp danh sách sản phẩm theo giá tăng dần hoặc giảm dần. "
+                "Dùng khi người dùng muốn xem sản phẩm rẻ nhất, đắt nhất, "
+                "hoặc sắp xếp theo giá."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": (
+                            "Từ khóa tìm kiếm tiếng Việt hoặc tiếng Anh, "
+                            "ví dụ: 'RTX 4080 Super', 'laptop Dell XPS', 'RAM DDR5'"
+                        ),
+                    },
+                    "sort_order": {
+                        "type": "string",
+                        "enum": ["asc", "desc"],
+                        "description": "Thứ tự sắp xếp: asc = giá tăng dần, desc = giá giảm dần",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Số kết quả tối đa cần trả về (mặc định: 5)",
+                    },
+                },
+                "required": ["query", "sort_order"],
             },
         },
     }

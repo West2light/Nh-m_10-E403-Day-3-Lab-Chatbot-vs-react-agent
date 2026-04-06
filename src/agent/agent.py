@@ -65,7 +65,8 @@ class PCPriceAgent:
 
 ## ROLE & RULES
 - Trả lời bằng tiếng Việt, thân thiện và chuyên nghiệp.
-- Luôn dùng tool `search_pc_price` để tìm kiếm trước khi trả lời.
+- Dùng tool `search_pc_price` để tìm sản phẩm.
+- Dùng tool `sort_products` khi người dùng muốn sắp xếp theo giá tăng dần hoặc giảm dần.
 - Trình bày kết quả rõ ràng: tên sản phẩm, giá, shop, link.
 - Nếu không tìm thấy sản phẩm phù hợp, hãy thông báo thẳng thắn.
 - KHÔNG bịa đặt giá hay link sản phẩm.
